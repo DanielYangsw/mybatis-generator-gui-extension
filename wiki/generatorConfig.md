@@ -20,7 +20,7 @@
     - javaClientGenerator?  `type` `targetPackage` `targetProject` `implementationPackage` 
       - property*  `name` `value`
     - table+ `catalog` `schema` `tableName` `alias` `domainObjectName` `mapperName` `sqlProviderName` `enableInsert` `enableSelectByPrimaryKey` `enableSelectByExample` `enableUpdateByPrimaryKey` `enableDeleteByPrimaryKey` `enableDeleteByExample` `enableCountByExample` `enableUpdateByExample` `selectByPrimaryKeyQueryId` `selectByExampleQueryId` `modelType` `escapeWildcards` `delimitIdentifiers` `delimitAllColumns` 
-      - property*   `constructorBased` `ignoreQualifiersAtRuntime` `immutable` `modelOnly` `rootClass` `rootInterface` `runtimeCatalog` `runtimeSchema` `runtimeTableName` `selectAllOrderByClause` `trimStrings` `useActualColumnNames` `useColumnIndexes` `useCompoundPropertyNames`
+      - property*   `constructorBased` `ignoreQualifiersAtRuntime` `immutable` `modelOnly` `rootClass` `rootInterface` `runtimeCatalog` `runtimeSchema` `runtimeTableName` `selectAllOrderByClause` `trimStrings` `shardingTable` `useActualColumnNames` `useColumnIndexes` `useCompoundPropertyNames`
       - generatedKey? `column` `sqlStatement` `identity` `type` 
       - columnRenamingRule? `searchString` `replaceString` 
       - (

@@ -183,9 +183,7 @@ public class DatabaseConfig implements Serializable {
                 default:
                     throw new RuntimeException(Constants.getI18nStr("msg.unsupportedDatabase"));
             }
-            addTables(connection, rs);
-
-            List<String> tmpList = new ArrayList<>(tableConfigs.keySet());
+            List<String> tmpList = readTables(connection, rs);
             tmpList.sort(Comparator.naturalOrder());
             //获取每个表中的字段信息
             for (String tableName : tmpList) {
@@ -208,10 +206,12 @@ public class DatabaseConfig implements Serializable {
         }
     }
 
-    private void addTables(Connection connection, ResultSet rs) throws SQLException {
+    private ArrayList<String> readTables(Connection connection, ResultSet rs) throws SQLException {
+        ArrayList<String> tables = Lists.newArrayList();
         while (rs.next()) {
-            tableConfigs.put(rs.getString("TABLE_NAME"), new ArrayList<>());
-
+            String table = rs.getString("TABLE_NAME");
+            tables.add(table);
+            tableConfigs.put(table, new ArrayList<>());
             //针对MYSQL，增加获取DDL的功能
             if (DatabaseType.MySQL.equals(DatabaseType.valueOf(databaseType.getValue()))) {
                 ResultSet tableNameRs = connection.createStatement().executeQuery("SHOW CREATE TABLE " + rs.getString("TABLE_NAME") + ";");
@@ -232,6 +232,7 @@ public class DatabaseConfig implements Serializable {
                 }
             }
         }
+        return tables;
     }
 
     private boolean existsColumn(ResultSet rs, String columnName) {

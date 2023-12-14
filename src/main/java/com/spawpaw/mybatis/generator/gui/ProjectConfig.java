@@ -44,7 +44,7 @@ public class ProjectConfig {
     public SimpleStringProperty daoObjSuffix = new SimpleStringProperty("Mapper");
     @AdvancedConfig
     @Config(bundle = "project.daoPackageSuffix")
-    public SimpleStringProperty daoPackageSuffix = new SimpleStringProperty("dao");
+    public SimpleStringProperty daoPackageSuffix = new SimpleStringProperty("mapper");
     @AdvancedConfig
     @Config(bundle = "project.entityObjSuffix")
     public SimpleStringProperty entityObjSuffix = new SimpleStringProperty("");
@@ -53,7 +53,7 @@ public class ProjectConfig {
     public SimpleStringProperty exampleObjSuffix = new SimpleStringProperty("Example");
     @AdvancedConfig
     @Config(bundle = "project.entityPackageSuffix")
-    public SimpleStringProperty entityPackageSuffix = new SimpleStringProperty("entity");
+    public SimpleStringProperty entityPackageSuffix = new SimpleStringProperty("dos");
     @ExportToTab(tabName = SHORTCUT, index = 10)
     @ExportToTab(tabName = tabs.BASIC_SETTINGS, index = 1)
     @Config(bundle = "project.overwrite", type = ConfigType.CheckBox)
@@ -69,7 +69,7 @@ public class ProjectConfig {
     public SimpleStringProperty mapperDir = new SimpleStringProperty("src/main/resources");
     @Config(bundle = "project.mapperPackage", type = ConfigType.TextField)
     @ExportToPlugin(plugin = DeclaredPlugins.SCVXGeneratorPlugin)
-    public SimpleStringProperty mapperPackage = new SimpleStringProperty("mapper");
+    public SimpleStringProperty mapperPackage = new SimpleStringProperty("mybatis");
     @ExportToPlugin(plugin = DeclaredPlugins.SCVXGeneratorPlugin)
     @Config(bundle = "project.daoDir", type = ConfigType.TextField)
     public SimpleStringProperty daoDir = new SimpleStringProperty("src/main/java");
@@ -235,6 +235,8 @@ public class ProjectConfig {
     public SimpleBooleanProperty generateJPA = new SimpleBooleanProperty(false);
     @Config(bundle = "project.trimStrings", type = ConfigType.CheckBox)
     public SimpleBooleanProperty trimStrings = new SimpleBooleanProperty(false);
+    @Config(bundle = "project.shardingTable", type = ConfigType.CheckBox)
+    public SimpleBooleanProperty shardingTable = new SimpleBooleanProperty(false);
     @Config(bundle = "project.useActualColumnNames", type = ConfigType.CheckBox)
     public SimpleBooleanProperty useActualColumnNames = new SimpleBooleanProperty(true);
 
@@ -388,9 +390,9 @@ public class ProjectConfig {
      * 当所选表名/表名过滤器的值发生变化时，更新Ui中的对象名
      */
     public void updateClassName() {
-        daoObjName.setValue(String.format("%s%s", getUpperCamelTableName(), daoObjSuffix.getValue()));
-        entityObjName.setValue(String.format("%s%s", getUpperCamelTableName(), entityObjSuffix.getValue()));
-        exampleObjName.setValue(String.format("%s%s", getUpperCamelTableName(), exampleObjSuffix.getValue()));
+        daoObjName.setValue(String.format("%s%s", getUpperCamelTableName(), daoObjSuffix.getValue()).replaceAll("\\d+", ""));
+        entityObjName.setValue(String.format("%s%s", getUpperCamelTableName(), entityObjSuffix.getValue()).replaceAll("\\d+", ""));
+        exampleObjName.setValue(String.format("%s%s", getUpperCamelTableName(), exampleObjSuffix.getValue()).replaceAll("\\d+", ""));
     }
 
     /**

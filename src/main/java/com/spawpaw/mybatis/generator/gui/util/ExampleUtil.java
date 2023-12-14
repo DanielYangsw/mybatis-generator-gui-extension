@@ -52,7 +52,8 @@ public class ExampleUtil {
     public static Method getSetGreaterThenOrEqualMethod(
             IntrospectedColumn introspectedColumn) {
         return getSingleValueMethod(introspectedColumn,
-                "GreaterThanOrEqualTo", ">="); //$NON-NLS-1$ //$NON-NLS-2$
+                "GreaterThanOrEqualTo", ">="
+        ); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     public static Method getSetLessThanMethod(IntrospectedColumn introspectedColumn) {
@@ -62,7 +63,8 @@ public class ExampleUtil {
     public static Method getSetLessThanOrEqualMethod(
             IntrospectedColumn introspectedColumn) {
         return getSingleValueMethod(introspectedColumn,
-                "LessThanOrEqualTo", "<="); //$NON-NLS-1$ //$NON-NLS-2$
+                "LessThanOrEqualTo", "<="
+        ); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     public static Method getSetLikeMethod(IntrospectedColumn introspectedColumn) {
@@ -179,6 +181,56 @@ public class ExampleUtil {
     }
 
     /**
+     * Generates methods that set between and not between conditions
+     *
+     * @param introspectedColumn the introspected column
+     * @return a generated method for the between or not between method
+     */
+    public static Method getSetModMethod(IntrospectedColumn introspectedColumn) {
+        Method method = new Method();
+        method.setVisibility(JavaVisibility.PUBLIC);
+        FullyQualifiedJavaType type = introspectedColumn
+                .getFullyQualifiedJavaType();
+
+        method.addParameter(new Parameter(type, "value1")); //$NON-NLS-1$
+        method.addParameter(new Parameter(type, "value2")); //$NON-NLS-1$
+        StringBuilder sb = new StringBuilder();
+        sb.append(introspectedColumn.getJavaProperty());
+        sb.setCharAt(0, Character.toUpperCase(sb.charAt(0)));
+        sb.insert(0, "and"); //$NON-NLS-1$
+        sb.append("ModEqualTo"); //$NON-NLS-1$
+        method.setName(sb.toString());
+        method.setReturnType(FullyQualifiedJavaType.getCriteriaInstance());
+        sb.setLength(0);
+
+        if (introspectedColumn.isJDBCDateColumn()) {
+            sb.append("addCriterionForJDBCDate(\""); //$NON-NLS-1$
+        } else if (introspectedColumn.isJDBCTimeColumn()) {
+            sb.append("addCriterionForJDBCTime(\""); //$NON-NLS-1$
+        } else if (stringHasValue(introspectedColumn
+                .getTypeHandler())) {
+            sb.append("add"); //$NON-NLS-1$
+            sb.append(introspectedColumn.getJavaProperty());
+            sb.setCharAt(3, Character.toUpperCase(sb.charAt(3)));
+            sb.append("Criterion(\""); //$NON-NLS-1$
+        } else {
+            sb.append("addCriterion(\""); //$NON-NLS-1$
+        }
+
+        sb.append(MyBatis3FormattingUtilities
+                .getAliasedActualColumnName(introspectedColumn));
+        sb.append(" % "); //$NON-NLS-1$
+        sb.append("\", "); //$NON-NLS-1$
+        sb.append("value1, value2"); //$NON-NLS-1$
+        sb.append(", \""); //$NON-NLS-1$
+        sb.append(introspectedColumn.getJavaProperty());
+        sb.append(",\"mod\"\");"); //$NON-NLS-1$
+        method.addBodyLine(sb.toString());
+        method.addBodyLine("return (Criteria) this;"); //$NON-NLS-1$
+        return method;
+    }
+
+    /**
      * Generates an In or NotIn method.
      *
      * @param introspectedColumn the introspected column
@@ -194,7 +246,7 @@ public class ExampleUtil {
                 .getNewListInstance();
         if (introspectedColumn.getFullyQualifiedJavaType().isPrimitive()) {
             type.addTypeArgument(introspectedColumn.getFullyQualifiedJavaType()
-                    .getPrimitiveTypeWrapper());
+                                                   .getPrimitiveTypeWrapper());
         } else {
             type
                     .addTypeArgument(introspectedColumn
@@ -334,7 +386,8 @@ public class ExampleUtil {
 
         method.addBodyLine(
                 String.format("%s.add(new Criterion(condition, value, \"%s\"));", //$NON-NLS-1$
-                        field.getName(), introspectedColumn.getTypeHandler()));
+                        field.getName(), introspectedColumn.getTypeHandler()
+                ));
         method.addBodyLine("allCriteria = null;"); //$NON-NLS-1$
         innerClass.addMethod(method);
 
@@ -364,7 +417,8 @@ public class ExampleUtil {
 
         method.addBodyLine(
                 String.format("%s.add(new Criterion(condition, value1, value2, \"%s\"));", //$NON-NLS-1$
-                        field.getName(), introspectedColumn.getTypeHandler()));
+                        field.getName(), introspectedColumn.getTypeHandler()
+                ));
 
         method.addBodyLine("allCriteria = null;"); //$NON-NLS-1$
         innerClass.addMethod(method);

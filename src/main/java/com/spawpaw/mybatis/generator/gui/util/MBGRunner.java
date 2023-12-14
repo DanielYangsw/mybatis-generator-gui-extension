@@ -1,5 +1,7 @@
 package com.spawpaw.mybatis.generator.gui.util;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.spawpaw.mybatis.generator.gui.DatabaseConfig;
 import com.spawpaw.mybatis.generator.gui.ProjectConfig;
 import com.spawpaw.mybatis.generator.gui.annotations.EnablePlugin;
@@ -9,19 +11,33 @@ import com.spawpaw.mybatis.generator.gui.enums.DatabaseType;
 import com.spawpaw.mybatis.generator.gui.enums.DeclaredPlugins;
 import javafx.beans.property.Property;
 import javafx.beans.property.SimpleStringProperty;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.BooleanUtils;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
+import org.mybatis.generator.api.GeneratedJavaFile;
+import org.mybatis.generator.api.GeneratedXmlFile;
 import org.mybatis.generator.api.MyBatisGenerator;
+import org.mybatis.generator.api.ProgressCallback;
 import org.mybatis.generator.config.*;
 import org.mybatis.generator.exception.InvalidConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Created By spawpaw@hotmail.com 2018.1.20
@@ -36,9 +52,12 @@ public class MBGRunner {
 
     private Set<String> enabledPlugins = new HashSet<>();
     private HashMap<String, HashMap<String, String>> pluginConfigs = new HashMap<>();
+    private HashMap<String, String> oldFileStrMap = new HashMap<>();
+    private HashMap<String, List<String>> oldMethodMap = new HashMap<>();
     private Configuration config;
     private Context context;
-    private final Predicate<SimpleStringProperty> notEmptyStringPropertyPredicate = (Predicate<SimpleStringProperty>) simpleStringProperty -> !simpleStringProperty.getValue().isEmpty();
+    private final String BUILT_IN_IDS = "BaseResultMap,ResultMapWithBLOBs,Example_Where_Clause,Update_By_Example_Where_Clause,Base_Column_List,Blob_Column_List,selectByExampleWithBLOBs,selectByExample,selectByPrimaryKey,deleteByPrimaryKey,deleteByExample,insert,insertSelective,countByExample,updateByExampleSelective,updateByExampleWithBLOBs,updateByExample,updateByPrimaryKeySelective,updateByPrimaryKeyWithBLOBs,updateByPrimaryKey,batchInsert,batchInsertSelective";
+    private final Predicate<SimpleStringProperty> notEmptyStringPropertyPredicate = simpleStringProperty -> !simpleStringProperty.getValue().isEmpty();
 
     public MBGRunner(ProjectConfig projectConfig, DatabaseConfig databaseConfig) {
         this.projectConfig = projectConfig;
@@ -122,6 +141,7 @@ public class MBGRunner {
         javaModelGeneratorConfiguration.addProperty("enableSubPackages", "true");
         javaModelGeneratorConfiguration.addProperty("useActualColumnNames", projectConfig.useActualColumnNames.getValue().toString());
         javaModelGeneratorConfiguration.addProperty("trimStrings", projectConfig.trimStrings.getValue().toString());
+        javaModelGeneratorConfiguration.addProperty("shardingTable", projectConfig.shardingTable.getValue().toString());
         if (!projectConfig.entityRootClass.getValue().isEmpty())
             javaModelGeneratorConfiguration.addProperty("rootClass", projectConfig.entityRootClass.getValue());
         context.setJavaModelGeneratorConfiguration(javaModelGeneratorConfiguration);
@@ -147,7 +167,14 @@ public class MBGRunner {
         TableConfiguration tableConfiguration = new TableConfiguration(context);
         tableConfiguration.setCatalog(databaseConfig.catalog());
         tableConfiguration.setSchema(databaseConfig.schema());
-        tableConfiguration.setTableName(projectConfig.selectedTable.getValue());
+        String tableName = projectConfig.selectedTable.getValue();
+        Boolean isShardingTable = BooleanUtils.isTrue(projectConfig.shardingTable.getValue());
+        log.info("shardingTable:{}", isShardingTable);
+        String logicTableName = null;
+        if (isShardingTable) {
+            logicTableName = tableName.replaceAll("_\\d+$", "");
+        }
+        tableConfiguration.setTableName(tableName);
         tableConfiguration.setDomainObjectName(projectConfig.entityObjName.getValue().replace(" ", ""));
         tableConfiguration.setMapperName(projectConfig.daoObjName.getValue().replace(" ", ""));
 
@@ -211,7 +238,117 @@ public class MBGRunner {
         MyShellCallback callback = new MyShellCallback(projectConfig.overwrite.getValue());
         try {
             MyBatisGenerator myBatisGenerator = new MyBatisGenerator(config, callback, warnings);
-            myBatisGenerator.generate(null);
+            myBatisGenerator.generate(new ProgressCallback() {
+                @Override
+                public void introspectionStarted(int i) {
+
+                }
+
+                @Override
+                public void generationStarted(int i) {
+
+                }
+
+                @Override
+                public void saveStarted(int j) {
+                    List<GeneratedXmlFile> generatedXmlFiles = myBatisGenerator.getGeneratedXmlFiles();
+                    generatedXmlFiles.forEach(f -> {
+                        String name = sqlMapGeneratorConfiguration.getTargetProject() + "/" + projectConfig.mapperPackage.getValue() + "/" + f.getFileName();
+                        try {
+                            File file = new File(name);
+                            String fileAsStr = FileUtil.readFileAsStr(file);
+                            if (!file.exists()) {
+                                return;
+                            }
+                            oldFileStrMap.put(name, fileAsStr);
+                            oldMethodMap.put(name, new ArrayList<>());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
+                }
+
+                @Override
+                public void startTask(String s) {
+
+                }
+
+                @Override
+                public void done() {
+
+                }
+
+                @Override
+                public void checkCancel() throws InterruptedException {
+
+                }
+            });
+            // 逻辑表替换
+            String finalLogicTableName = logicTableName;
+            List<GeneratedJavaFile> generatedJavaFiles = myBatisGenerator.getGeneratedJavaFiles();
+            generatedJavaFiles.forEach(f -> {
+                String name = f.getTargetProject() + "/" + f.getTargetPackage().replaceAll("\\.", "/") + "/" + f.getFileName();
+                String formattedContent = f.getFormattedContent();
+                if (isShardingTable) {
+                    formattedContent = formattedContent.replaceAll(tableName, finalLogicTableName);
+                }
+                try {
+                    FileUtil.writeStringToFile(name, formattedContent);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+
+            List<GeneratedXmlFile> generatedXmlFiles = myBatisGenerator.getGeneratedXmlFiles();
+            generatedXmlFiles.forEach(f -> {
+                String name = sqlMapGeneratorConfiguration.getTargetProject() + "/" + projectConfig.mapperPackage.getValue() + "/" + f.getFileName();
+                if (oldFileStrMap.containsKey(name)) {
+                    String fileAsStr = oldFileStrMap.get(name);
+                    String[] split = fileAsStr.split("\n");
+                    split[1] = "";
+                    fileAsStr = Joiner.on("\n").join(split);
+                    log.info("callback save started:{},{}", name, fileAsStr);
+                    SAXReader reader = new SAXReader();
+                    reader.setValidation(false);
+                    // 解析XML文件，生成一个Document对象
+                    try {
+                        Document document = DocumentHelper.parseText(fileAsStr);
+                        // 获取根元素
+                        Element root = document.getRootElement();
+                        // 遍历根元素的子元素
+                        for (Object child : root.elements()) {
+                            Element cast = (Element) child;
+                            // 在这里可以对子元素进行操作
+                            if (!BUILT_IN_IDS.contains(cast.attributeValue("id"))) {
+                                System.out.println("OLD METHOD ID：" + cast.attributeValue("id"));
+                                oldMethodMap.get(name).add(cast.asXML());
+                            }
+                        }
+                    } catch (DocumentException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                String formattedContent = f.getFormattedContent();
+                Set<Map.Entry<String, String>> entries = Constants.MAPPER_TIMES_REPLACEMENT.entrySet();
+                for (Map.Entry<String, String> next : entries) {
+                    formattedContent = formattedContent.replace(next.getKey(), next.getValue());
+                }
+                if (CollectionUtils.isNotEmpty(oldMethodMap.get(name))) {
+                    formattedContent = formattedContent.replace(
+                            "</mapper>",
+                            Joiner.on("\n").join(oldMethodMap.get(name)) + "\n</mapper>"
+                    );
+                }
+                if (isShardingTable) {
+                    formattedContent = formattedContent.replaceAll(tableName, finalLogicTableName);
+                }
+                try {
+                    FileUtil.writeStringToFile(name, formattedContent);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         } catch (InvalidConfigurationException | InterruptedException | SQLException | IOException e) {
             e.printStackTrace();
         }

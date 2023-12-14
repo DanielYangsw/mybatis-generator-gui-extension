@@ -36,6 +36,8 @@ getterName               :${column.getterName}
 setterName               :${column.setterName}
 ## andXxxBetween方法名
 betweenMethod            :${column.betweenMethod}
+##
+modMethod            :${column.modMethod}
 ## ...
 notBetweenMethod         :${column.notBetweenMethod}
 equalMethod              :${column.equalMethod}

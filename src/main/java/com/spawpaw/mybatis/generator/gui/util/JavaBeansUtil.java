@@ -260,6 +260,14 @@ public class JavaBeansUtil {
         return rc;
     }
 
+    private static boolean isShardingTableEnabled(Context context) {
+        Properties properties = context
+                .getJavaModelGeneratorConfiguration().getProperties();
+        boolean rc = isTrue(properties
+                .getProperty("shardingTable"));
+        return rc;
+    }
+
     private static boolean isTrimStringsEnabled(IntrospectedTable table) {
         TableConfiguration tableConfiguration = table.getTableConfiguration();
         String trimSpaces = tableConfiguration.getProperties().getProperty(PropertyRegistry.MODEL_GENERATOR_TRIM_STRINGS);
